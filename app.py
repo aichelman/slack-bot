@@ -10,16 +10,11 @@ from flask import Flask, request
 from requests.models import PreparedRequest
 from requests.models import PreparedRequest
 
-# Activate venv
-# Start ngrok
-# Change URL to match the new ngrok forwarding address
-# Start python flask app
-
 app = Flask(__name__)
 req = PreparedRequest()
 
 header = {
-    'Authorization': 'SSWS 00zbUAa01XCT-Qwen1h2NxeiFcPutIrC3jur4WqlIb',
+    'Authorization': 'SSWS '+ os.environ.get("OKTA_TOKEN"),
     'Content-Type': 'application/json'
 }
 
@@ -33,7 +28,6 @@ def parse_user_email(payload: dict):
     payload_string = str(payload['text'])
     user_email = str((payload['blocks'][0]['elements'][0]['elements'][1]['text']))
     return user_email
-
 
 def parse_for_profile(payload: dict):
     payload_string = str(payload['text'])
@@ -64,7 +58,7 @@ def all_users(payload: dict):
     header = {
     'Authorization': 'SSWS 00zbUAa01XCT-Qwen1h2NxeiFcPutIrC3jur4WqlIb'
     }
-    
+
     data = requests.get(base_url + "/users?limit=25", headers = header).json()
     print(data)
     for user in data:
@@ -117,12 +111,18 @@ def query_user(payload: dict):
     url = "https://trial-3887295.okta.com/api/v1/users?" + payload_str
 
     data = requests.get(url, headers = header).json()
-    user_info = data[0]['profile']
-    message_string = user_info['email'] + ' - ' + user_info['firstName']  + ' ' + user_info['lastName']
-    response = client.chat_postMessage(channel=payload.get('channel'),
+
+    if(data):
+        user_info = data[0]['profile']
+        message_string = user_info['email'] + ' - ' + user_info['firstName']  + ' ' + user_info['lastName']
+        response = client.chat_postMessage(channel=payload.get('channel'),
                                        thread_ts=payload.get('ts'),
                                        text=f"User: {message_string}")
-
+    else:
+        response = client.chat_postMessage(channel=payload.get('channel'),
+            thread_ts=payload.get('ts'),
+            text=f"User: {user_email} does not exist")
+        
 def create_user_request(payload):
     json_body = parse_for_profile(payload)
     print(json_body)
@@ -157,6 +157,10 @@ def update_user(payload: dict):
     exists = check_user_exists(payload)
 
     if(exists):
+        response = client.chat_postMessage(channel=payload.get('channel'),
+            thread_ts=payload.get('ts'),
+            text=f"This would be where we would update the user")   
+        
         # This works to deactivate, but cant clear before creating new
         # deactivated = deactivate_existing_user(payload)
         # if(deactivated.status_code == 200):
