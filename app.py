@@ -67,6 +67,7 @@ def all_users(payload: dict):
         response = client.chat_postMessage(channel=payload.get('channel'),
                                        thread_ts=payload.get('ts'),
                                        text=message_string)
+
 def check_user_exists(payload: dict):
     user_email = parse_user_email(payload)
 
@@ -114,7 +115,7 @@ def query_user(payload: dict):
 
     if(data):
         user_info = data[0]['profile']
-        message_string = user_info['email'] + ' - ' + user_info['firstName']  + ' ' + user_info['lastName']
+        message_string = user_info['firstName']  + ' ' + user_info['lastName'] + ' - ' + user_info['email']
         response = client.chat_postMessage(channel=payload.get('channel'),
                                        thread_ts=payload.get('ts'),
                                        text=f"User: {message_string}")
@@ -125,14 +126,13 @@ def query_user(payload: dict):
         
 def create_user_request(payload):
     json_body = parse_for_profile(payload)
-    print(json_body)
-    print(payload)
+
     try:
-        r = requests.post("https://trial-3887295.okta.com/api/v1/users?activate=true",data=json_body,headers=header)
+        r = requests.post("https://trial-3887295.okta.com/api/v1/users",data=json_body,headers=header)
         return r.status_code    
     except requests.exceptions.HTTPError as errh:
-        return r.status_code
         print ("Http Error:",errh)
+        return r.status_code
 
 @bolt_app.message("create")
 def create_user(payload: dict):
@@ -154,24 +154,24 @@ def create_user(payload: dict):
 @bolt_app.message("update")
 def update_user(payload: dict):
     
-    exists = check_user_exists(payload)
+    user_email = parse_user_email(payload)
+    url = base_url + "/users/" + user_email
+    json_body = parse_for_profile(payload)
 
-    if(exists):
+
+    if (check_user_exists(payload)):    
+        try:
+            r = requests.post(url, data=json_body, headers=header)
+        except requests.exceptions.HTTPError as errh:
+            print(errh)
+        
         response = client.chat_postMessage(channel=payload.get('channel'),
             thread_ts=payload.get('ts'),
-            text=f"This would be where we would update the user")   
-        
-        # This works to deactivate, but cant clear before creating new
-        # deactivated = deactivate_existing_user(payload)
-        # if(deactivated.status_code == 200):
-            # new_user = create_user_request(payload)
-            # print(new_user)
-        #TODO post message that user is updated
+            text=f"Success: User updated") 
     else:
         response = client.chat_postMessage(channel=payload.get('channel'),
             thread_ts=payload.get('ts'),
-            text=f"Failure: User does not exist")   
-        #doesnt exist: post message that user does not exist
+            text=f"Failure: User does not exist") 
 
 handler = SlackRequestHandler(bolt_app)
 
